@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  nginx_proxy:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_cache:/var/cache/nginx
+    environment:
+      - ROTATE_TIME=300  # Temps en secondes avant de changer d'IP
+    networks:
+      - proxy-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G  # Limite de mémoire pour le conteneur
+        reservations:
+          memory: 512M  # Mémoire réservée pour le conteneur
+
+  ip-rotator:
+    image: alpine
+    command: |
+      sh -c "while true; do
+        ip addr flush dev eth0;
+        ip addr add $$(shuf -i 10.0.0.1-10.255.255.254 -n 1)/16 dev eth0;
+        sleep $${ROTATE_TIME:-300};
+      done"
+    networks:
+      - proxy-net
+
+volumes:
+  nginx_cache:
+
+networks:
+  proxy-net:
+    driver: bridge
